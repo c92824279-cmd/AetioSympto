@@ -630,19 +630,31 @@
         const modal = document.getElementById('ai-modal');
         const content = document.getElementById('ai-content');
         modal.style.display = 'block';
-        content.innerHTML = "Analyse détaillée en cours<span class='loading-dots'></span>";
+        content.innerHTML = "Analyse chronologique en cours<span class='loading-dots'></span>";
 
         const historyText = logs.slice(0, 50).map(l => {
             return `${l.date} ${l.time}: ${l.type}, Repas: ${l.foods}, Boisson: ${l.drinks}, Médoc: ${l.meds}, Symptômes: ${(l.symptoms || []).join(', ')}`;
         }).join('\n');
 
-        const prompt = `En tant qu'analyste de santé expert, examine attentivement ce journal de bord :\n\n${historyText}\n\nFournis une analyse détaillée, approfondie et structurée :\n1. Déclencheurs potentiels : Identifie précisément quels aliments, boissons ou médicaments sont le plus souvent associés à l'apparition des symptômes.\n2. Schémas récurrents : Remarques-tu des combinaisons d'aliments ou des moments de la journée particulièrement problématiques ?\n3. Hypothèses : Quelles sensibilités ou intolérances cela pourrait-il suggérer ?\n4. Pistes d'action : Propose des étapes simples pour l'utilisateur (ex: éviction temporaire).\n\nRédige une réponse complète, détaillée, claire et bienveillante. Rappelle à la fin que cela ne remplace en aucun cas un avis médical véritable.`;
+        const prompt = `Analyse ce journal de santé en MAXIMUM 15 LIGNES STRICT.
+Historique :\n${historyText}
+
+Consignes :
+1. Résume les symptômes de l'utilisateur.
+2. Évalue les corrélations aliments/symptômes EN CALCULANT LE TEMPS DE DIGESTION (ex: un aliment consommé à 20h peut causer une diarrhée à 8h le lendemain. Regarde bien les dates et heures entre les repas et les symptômes).
+3. En utilisant tes connaissances et les résultats du web, dis ce que pourrait être le problème médical (intolérance spécifique, syndrome, etc.).
+4. Donne 2-3 consignes d'action claires.
+
+Format attendu : Phrases courtes, puces, direct au but, 15 lignes maximum au total.`;
 
         try {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: prompt }] }],
+                    tools: [{ "google_search": {} }]
+                })
             });
             const result = await response.json();
             content.innerHTML = result.candidates[0].content.parts[0].text.replace(/[*#]/g, '').trim();
